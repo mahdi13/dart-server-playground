@@ -1,32 +1,53 @@
-import 'dart:io';
+//import 'dart:io';
+//
+//import 'package:args/args.dart';
+//import 'package:shelf/shelf.dart' as shelf;
+//import 'package:shelf/shelf_io.dart' as io;
+//
+//main(List<String> args) async {
+//  var parser = new ArgParser()
+//    ..addOption('port', abbr: 'p', defaultsTo: '8080');
+//
+//  var result = parser.parse(args);
+//
+//  var port = int.tryParse(result['port']);
+//
+//  if (port == null) {
+//    stdout.writeln(
+//        'Could not parse port value "${result['port']}" into a number.');
+//    // 64: command line usage error
+//    exitCode = 64;
+//    return;
+//  }
+//
+//  var handler = const shelf.Pipeline()
+//      .addMiddleware(shelf.logRequests())
+//      .addHandler(_echoRequest);
+//
+//  var server = await io.serve(handler, 'localhost', port);
+//  print('Serving at http://${server.address.host}:${server.port}');
+//}
+//
+//shelf.Response _echoRequest(shelf.Request request) =>
+//    new shelf.Response.ok('Request for "${request.url}"');
 
-import 'package:args/args.dart';
-import 'package:shelf/shelf.dart' as shelf;
+import 'dart:io' show Platform;
+import 'dart:async' show runZoned;
+import 'package:path/path.dart' show join, dirname;
 import 'package:shelf/shelf_io.dart' as io;
+import 'package:shelf_static/shelf_static.dart';
 
-main(List<String> args) async {
-  var parser = new ArgParser()
-    ..addOption('port', abbr: 'p', defaultsTo: '8080');
+void main() {
+  // Assumes the server lives in bin/ and that `webdev build` ran
+  var pathToBuild = join(dirname(Platform.script.toFilePath()), '..', 'build');
 
-  var result = parser.parse(args);
+  var handler = createStaticHandler(pathToBuild, defaultDocument: 'index.html');
 
-  var port = int.tryParse(result['port']);
+  var portEnv = Platform.environment['PORT'];
+  var port = portEnv == null ? 9999 : int.parse(portEnv);
 
-  if (port == null) {
-    stdout.writeln(
-        'Could not parse port value "${result['port']}" into a number.');
-    // 64: command line usage error
-    exitCode = 64;
-    return;
-  }
-
-  var handler = const shelf.Pipeline()
-      .addMiddleware(shelf.logRequests())
-      .addHandler(_echoRequest);
-
-  var server = await io.serve(handler, 'localhost', port);
-  print('Serving at http://${server.address.host}:${server.port}');
+  runZoned(() {
+    io.serve(handler, '0.0.0.0', port);
+    print("Serving $pathToBuild on port $port");
+  }, onError: (e, stackTrace) => print('Oh noes! $e $stackTrace'));
 }
-
-shelf.Response _echoRequest(shelf.Request request) =>
-    new shelf.Response.ok('Request for "${request.url}"');
